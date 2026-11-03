@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexoraCity - Cyberpunk 3D Web</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    body { margin: 0; overflow: hidden; background-color: #050510; font-family: 'sans-serif'; }
+    #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+    .ui-layer { position: relative; z-index: 10; pointer-events: none; }
+    .interactive { pointer-events: auto; }
+    .glass { background: rgba(10, 15, 30, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(0, 240, 255, 0.2); }
+  </style>
+</head>
+<body class="text-white select-none">
+
+  <!-- 3D Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- UI Overlay -->
+  <div class="ui-layer h-screen flex flex-col justify-between p-6">
+    <!-- Header -->
+    <header class="flex justify-between items-center glass p-4 rounded-xl interactive">
+      <div>
+        <h1 class="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">NEXORACITY</h1>
+        <p class="text-xs text-cyan-300">VIRTUAL CITY PORTAL • THE FUTURE IS NOW</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> ONLINE
+        </span>
+      </div>
+    </header>
+
+    <!-- Info Panel & District Navigation -->
+    <footer class="flex flex-col md:flex-row gap-4 justify-between items-end">
+      <!-- Info Box -->
+      <div class="glass p-5 rounded-xl max-w-sm w-full interactive">
+        <h2 id="district-title" class="text-lg font-bold text-cyan-400 mb-1">Central Core</h2>
+        <p id="district-desc" class="text-xs text-slate-300 leading-relaxed mb-3">Pusat pemerintahan dan teknologi utama NexoraCity tempat pencakar langit neon berdiri megah.</p>
+        <button class="w-full py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 rounded-lg text-xs font-bold tracking-wider uppercase transition">Daftar KTP Virtual</button>
+      </div>
+
+      <!-- District Selector -->
+      <div class="glass p-3 rounded-xl flex gap-2 interactive">
+        <button onclick="focusDistrict('core')" class="px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-bold transition">Central Core</button>
+        <button onclick="focusDistrict('neon')" class="px-4 py-2 bg-fuchsia-500/20 hover:bg-fuchsia-500/40 text-fuchsia-300 border border-fuchsia-500/40 rounded-lg text-xs font-bold transition">Neon Plaza</button>
+        <button onclick="focusDistrict('harbor')" class="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-bold transition">Cyber Harbor</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- 3D Engine Script -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const container = document.getElementById('canvas-container');
+    
+    // 1. Scene, Camera, Renderer
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050510);
+    scene.fog = new THREE.FogExp2(0x050510, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 30, 60);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI / 2.1;
+
+    // 2. Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
+
+    const cyanLight = new THREE.PointLight(0x00f0ff, 3, 100);
+    cyanLight.position.set(0, 20, 0);
+    scene.add(cyanLight);
+
+    const magentaLight = new THREE.PointLight(0xff00ff, 3, 100);
+    magentaLight.position.set(-20, 15, -20);
+    scene.add(magentaLight);
+
+    // 3. Grid Floor
+    const grid = new THREE.GridHelper(200, 50, 0x00f0ff, 0x112244);
+    grid.position.y = 0;
+    scene.add(grid);
+
+    // 4. Building Generator
+    const buildingGroup = new THREE.Group();
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+    
+    for (let i = 0; i < 70; i++) {
+      const h = 5 + Math.random() * 35;
+      const w = 3 + Math.random() * 5;
+      const d = 3 + Math.random() * 5;
+      
+      const isNeon = Math.random() > 0.6;
+      const color = isNeon ? (Math.random() > 0.5 ? 0x00f0ff : 0xff00ff) : 0x0a1020;
+      
+      const mat = new THREE.MeshStandardMaterial({
+        color: color,
+        roughness: 0.2,
+        metalness: 0.8
+      });
+      
+      const mesh = new THREE.Mesh(boxGeo, mat);
+      mesh.scale.set(w, h, d);
+      mesh.position.set(
+        (Math.random() - 0.5) * 120,
+        h / 2,
+        (Math.random() - 0.5) * 120
+      );
+      buildingGroup.add(mesh);
+    }
+    scene.add(buildingGroup);
+
+    // 5. Target Camera Animation Setup
+    let targetCamPos = new THREE.Vector3(0, 30, 60);
+    let targetLookAt = new THREE.Vector3(0, 0, 0);
+
+    window.focusDistrict = function(district) {
+      const title = document.getElementById('district-title');
+      const desc = document.getElementById('district-desc');
+
+      if (district === 'core') {
+        targetCamPos.set(0, 25, 45);
+        targetLookAt.set(0, 0, 0);
+        title.innerText = "Central Core";
+        desc.innerText = "Pusat pemerintahan dan teknologi utama NexoraCity tempat pencakar langit neon berdiri megah.";
+      } else if (district === 'neon') {
+        targetCamPos.set(-35, 20, 20);
+        targetLookAt.set(-30, 5, -10);
+        title.innerText = "Neon Plaza";
+        desc.innerText = "Kawasan hiburan dan pusat perbelanjaan digital yang hidup 24 jam dengan gemerlap cahaya neon.";
+      } else if (district === 'harbor') {
+        targetCamPos.set(35, 15, -25);
+        targetLookAt.set(30, 0, -30);
+        title.innerText = "Cyber Harbor";
+        desc.innerText = "Pelabuhan data dan gerbang utama arus informasi antar kota virtual di dunia meta.";
+      }
+    };
+
+    // 6. Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // Smooth Camera Transition
+      camera.position.lerp(targetCamPos, 0.03);
+      controls.target.lerp(targetLookAt, 0.03);
+      controls.update();
+
+      // Slow Scene Rotation
+      buildingGroup.rotation.y += 0.0005;
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // 7. Window Resize Handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
